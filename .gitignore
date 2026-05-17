@@ -1,0 +1,44 @@
+# ── Entorno y secretos ──────────────────────────────────────
+.env
+*.env
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# ── Entornos virtuales ──────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── Logs ────────────────────────────────────────────────────
+logs/
+*.log
+*.jsonl
+
+# ── Tests y cobertura ───────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# ── IDEs ────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Archivos temporales ─────────────────────────────────────
+*.tmp
+*.bak
+static/images/*
+!static/images/.gitkeep

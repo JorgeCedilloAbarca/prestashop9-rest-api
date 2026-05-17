@@ -1,0 +1,99 @@
+{
+  "name": "Cambio Estado Pedido",
+  "nodes": [
+    {
+      "id": "sticky_cambio_estado",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 🔄 Cambio Estado Pedido\n\n**Qué hace:** Recibe el evento de cambio de estado de un pedido y envía email al cliente informando del cambio.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `order_status`\n2. **Gmail:** conecta tu cuenta en el nodo \"Email Cliente\"\n3. Los estados de PrestaShop por defecto: 1=Pago pendiente, 2=Pago aceptado, 3=En preparación, 4=Enviado, 5=Entregado, 6=Cancelado",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Cambio Estado",
+      "name": "Recibe Cambio Estado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "estado-pedido",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nconst estados = {\n  '1': 'Pago pendiente', '2': 'Pago aceptado', '3': 'En preparación',\n  '4': 'Enviado', '5': 'Entregado', '6': 'Cancelado', '7': 'Reembolsado'\n};\nconst nuevo = estados[String(body.new_status)] || `Estado ${body.new_status}`;\nconst anterior = estados[String(body.old_status)] || `Estado ${body.old_status}`;\nreturn [{json: {\n  order_id: body.order_id,\n  reference: body.reference,\n  email: body.customer_email || body.email,\n  customer: body.customer,\n  nuevo_estado: nuevo,\n  anterior_estado: anterior,\n  total: body.total\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Cliente",
+      "name": "Email Cliente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Tu pedido #{{ $json.order_id }} ha cambiado de estado",
+        "message": "=Tu pedido <strong>#{{ $json.order_id }}</strong> ha pasado de <em>{{ $json.anterior_estado }}</em> a <strong>{{ $json.nuevo_estado }}</strong>.",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Cambio Estado": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

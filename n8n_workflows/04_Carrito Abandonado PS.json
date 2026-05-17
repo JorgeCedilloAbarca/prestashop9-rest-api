@@ -1,0 +1,99 @@
+{
+  "name": "Carrito Abandonado PS",
+  "nodes": [
+    {
+      "id": "sticky_carrito",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 🛒 Carrito Abandonado\n\n**Qué hace:** Recibe carritos con más de 2h de inactividad sin convertirse en pedido y envía email de recuperación al cliente.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `cart_abandoned`\n2. **Gmail:** conecta tu cuenta en el nodo \"Email Recuperación\"\n3. **URL tienda:** en el body del email, cambia `https://tu-tienda.com` por la URL real de tu tienda PrestaShop\n4. El módulo PHP debe enviar: `nombre`, `email`, `total`, `cart_id`, `productos[]`",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Carrito Abandonado",
+      "name": "Recibe Carrito Abandonado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "carrito-abandonado",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nconst productos = (body.productos || [])\n  .map(p => `<li>${p.nombre} x${p.cantidad} — ${p.subtotal}€</li>`)\n  .join('');\nreturn [{json: {\n  nombre: body.nombre,\n  email: body.email,\n  total: body.total,\n  cart_id: body.cart_id,\n  productos_html: `<ul>${productos}</ul>`\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Recuperación",
+      "name": "Email Recuperación",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.nombre }}, ¿olvidaste algo en tu carrito?",
+        "message": "=Hola {{ $json.nombre }}, dejaste {{ $json.total }}€ en tu carrito. {{ $json.productos_html }} <a href='https://tu-tienda.com/cart'>Volver al carrito</a>",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Carrito Abandonado": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Recuperación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

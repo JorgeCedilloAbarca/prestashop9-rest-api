@@ -1,0 +1,126 @@
+{
+  "name": "Alerta Devolución PS",
+  "nodes": [
+    {
+      "id": "sticky_devolucion",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## ↩️ Alerta Devolución\n\n**Qué hace:** Cuando se crea un slip de devolución en PS, envía email de confirmación al cliente y alerta interna al equipo.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `return_created`\n2. **Gmail \"Email Cliente\":** conecta tu cuenta. El destinatario ya está configurado como el email del cliente\n3. **Gmail \"Email Interno\":** cambia el destinatario a tu email de gestión\n4. **Twilio (opcional):** si no usas WhatsApp, elimina el nodo. Si lo usas, configura Account SID, Auth Token y tu número de teléfono interno",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Devolución",
+      "name": "Recibe Devolución",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "devolucion-ps",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nconst productos = (body.productos || [])\n  .map(p => `<li>${p.nombre} x${p.cantidad} — ${p.total}€</li>`)\n  .join('');\nreturn [{json: {\n  order_id: body.order_id,\n  reference: body.reference,\n  customer: body.customer,\n  email: body.email || body.customer_email,\n  total_slip: body.total_slip || body.total,\n  productos_html: `<ul>${productos}</ul>`,\n  fecha: new Date().toLocaleDateString('es-ES')\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Cliente",
+      "name": "Email Cliente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Tu devolución del pedido #{{ $json.order_id }} ha sido aprobada",
+        "message": "=Hola {{ $json.customer }}, hemos procesado la devolución de tu pedido #{{ $json.order_id }} por importe de {{ $json.total_slip }}€. {{ $json.productos_html }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "gmail_Email Interno",
+      "name": "Email Interno",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "=TU_EMAIL_GESTION@dominio.com",
+        "subject": "=⚠️ Devolución procesada — Pedido #{{ $json.order_id }}",
+        "message": "=Devolución de {{ $json.customer }} — Pedido #{{ $json.order_id }} — {{ $json.total_slip }}€",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Devolución": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Cliente",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Interno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

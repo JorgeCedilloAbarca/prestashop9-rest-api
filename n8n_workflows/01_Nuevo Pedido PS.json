@@ -1,0 +1,126 @@
+{
+  "name": "Nuevo Pedido PS",
+  "nodes": [
+    {
+      "id": "sticky_nuevo_pedido",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 🛒 Nuevo Pedido PS\n\n**Qué hace:** Recibe el evento de nuevo pedido desde PrestaShop y envía email de confirmación al cliente + notificación interna.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL que genera n8n y pégala en el módulo PHP de PS como URL de `new_order`\n2. **Gmail:** conecta tu cuenta Gmail en el nodo \"Email Cliente\" y \"Email Interno\"\n3. **Email interno:** en \"Email Interno\", cambia el destinatario a tu email de gestión\n4. **Twilio (opcional):** si no usas WhatsApp, elimina el nodo Twilio. Si lo usas, configura Account SID, Auth Token y número de teléfono interno en el nodo",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Nuevo Pedido",
+      "name": "Recibe Nuevo Pedido",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "nuevo-pedido",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nconst productos = (body.productos || [])\n  .map(p => `<tr><td>${p.nombre}</td><td>${p.cantidad}</td><td>${p.precio}€</td><td>${p.total}€</td></tr>`)\n  .join('');\nreturn [{json: {\n  order_id: body.order_id,\n  reference: body.reference,\n  customer: body.customer,\n  email: body.email || body.customer_email,\n  total: body.total,\n  productos_html: productos,\n  fecha: new Date().toLocaleDateString('es-ES')\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Cliente",
+      "name": "Email Cliente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Confirmación de tu pedido #{{ $json.order_id }} — {{ $json.reference }}",
+        "message": "=<!DOCTYPE html><html><body style=\"font-family:Arial,sans-serif;background:#f4f4f4;padding:20px\">\n<div style=\"max-width:560px;margin:0 auto;background:white;border-radius:12px;padding:30px\">\n<h2>¡Gracias por tu pedido!</h2>\n<p>Hemos recibido tu pedido <strong>#{{ $json.order_id }}</strong> — {{ $json.reference }}</p>\n<table border=\"1\" cellpadding=\"8\" style=\"width:100%;border-collapse:collapse\">\n<tr style=\"background:#f0f0f0\"><th>Producto</th><th>Cant.</th><th>Precio</th><th>Total</th></tr>\n{{ $json.productos_html }}\n</table>\n<p><strong>Total: {{ $json.total }}€</strong></p>\n<p>Te informaremos cuando tu pedido sea enviado.</p>\n</div></body></html>",
+        "options": {}
+      }
+    },
+    {
+      "id": "gmail_Email Interno",
+      "name": "Email Interno",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "=TU_EMAIL_GESTION@dominio.com",
+        "subject": "=🛒 Nuevo pedido #{{ $json.order_id }} — {{ $json.reference }}",
+        "message": "=Nuevo pedido de {{ $json.customer }} por {{ $json.total }}€",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Nuevo Pedido": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Cliente",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Interno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

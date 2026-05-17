@@ -1,0 +1,99 @@
+{
+  "name": "Productos sin Stock",
+  "nodes": [
+    {
+      "id": "sticky_sin_stock",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 📦 Productos sin Stock\n\n**Qué hace:** Recibe la lista de productos agotados y envía un resumen diario por email al equipo.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `out_of_stock`\n2. **Gmail:** conecta tu cuenta y cambia el destinatario a tu email de gestión\n3. Solo se envía email si hay productos agotados (el módulo PHP filtra antes de enviar)\n4. El módulo PHP debe enviar: `fecha`, `total`, `productos[]` con `nombre`, `referencia`, `combinacion`",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Productos Sin Stock",
+      "name": "Recibe Productos Sin Stock",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "productos-sin-stock",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nconst productos = (body.productos || [])\n  .map(p => {\n    const combo = p.combinacion ? ` (${p.combinacion})` : '';\n    return `<li><strong>${p.nombre}${combo}</strong> — Ref: ${p.referencia}</li>`;\n  }).join('');\nreturn [{json: {\n  fecha: body.fecha || new Date().toLocaleDateString('es-ES'),\n  total: body.total || (body.productos || []).length,\n  productos_html: `<ul>${productos}</ul>`\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Resumen Sin Stock",
+      "name": "Email Resumen Sin Stock",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "=TU_EMAIL_GESTION@dominio.com",
+        "subject": "=⚠️ {{ $json.total }} productos sin stock — {{ $json.fecha }}",
+        "message": "=Los siguientes {{ $json.total }} productos están agotados: {{ $json.productos_html }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Productos Sin Stock": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Resumen Sin Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

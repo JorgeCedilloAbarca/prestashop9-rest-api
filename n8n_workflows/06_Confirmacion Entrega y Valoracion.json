@@ -1,0 +1,132 @@
+{
+  "name": "Confirmación Entrega y Valoración",
+  "nodes": [
+    {
+      "id": "sticky_valoracion",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## ⭐ Confirmación Entrega y Solicitud de Valoración\n\n**Qué hace:** Cuando un pedido llega a estado \"Entregado\" (estado 5 en PS por defecto), espera 2 días y envía email al cliente solicitando valoración.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `order_status`\n2. **Estado entregado:** el nodo IF comprueba que `new_status == 5`. Si en tu PS el estado \"Entregado\" tiene otro ID, cámbialo en el nodo IF\n3. **Gmail:** conecta tu cuenta en el nodo \"Email Valoración\"\n4. **URL valoración:** cambia `https://tu-tienda.com/my-account/order-follow` por el enlace real de valoración de tu tienda\n5. **Espera:** por defecto 2 días. Puedes cambiarlo en el nodo Wait",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Estado",
+      "name": "Recibe Estado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "entrega-valoracion",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "if_Es Entregado",
+      "name": "Es Entregado",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.new_status }}",
+              "operation": "equal",
+              "value2": "5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "wait_Espera 2 Días",
+      "name": "Espera 2 Días",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        400,
+        -100
+      ],
+      "parameters": {
+        "amount": 2,
+        "unit": "days"
+      }
+    },
+    {
+      "id": "gmail_Email Valoración",
+      "name": "Email Valoración",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        600,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.body.customer_email }}",
+        "subject": "=¿Qué te pareció tu pedido #{{ $json.body.order_id }}?",
+        "message": "=Hola, han pasado unos días desde que recibiste tu pedido #{{ $json.body.order_id }}. ¿Nos cuentas qué te pareció? <a href='https://tu-tienda.com/my-account/order-follow'>Valorar mi pedido</a>",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Estado": {
+      "main": [
+        [
+          {
+            "node": "Es Entregado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Entregado": {
+      "main": [
+        [
+          {
+            "node": "Espera 2 Días",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera 2 Días": {
+      "main": [
+        [
+          {
+            "node": "Email Valoración",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

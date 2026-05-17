@@ -1,0 +1,99 @@
+{
+  "name": "Envio con Tracking",
+  "nodes": [
+    {
+      "id": "sticky_tracking",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 📦 Envío con Tracking\n\n**Qué hace:** Cuando un pedido es enviado, notifica al cliente con el número de seguimiento y transportista.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `order_shipped`\n2. **Gmail:** conecta tu cuenta en el nodo \"Email Envío\"\n3. **Transportista:** el módulo PHP debe enviar `tracking_number` y `carrier`. Si no tienes integración con transportista, el campo tracking llegará vacío\n4. ⚠️ Conectar con Sendcloud/Packlink cuando esté disponible para tracking automático",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Envío",
+      "name": "Recibe Envío",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "envio-tracking",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nreturn [{json: {\n  order_id: body.order_id,\n  reference: body.reference,\n  email: body.customer_email || body.email,\n  customer: body.customer,\n  tracking: body.tracking_number || 'Pendiente de asignación',\n  carrier: body.carrier || 'Transportista',\n  total: body.total\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Envío",
+      "name": "Email Envío",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "=Tu pedido #{{ $json.order_id }} ha sido enviado",
+        "message": "=Tu pedido <strong>#{{ $json.order_id }}</strong> ha sido enviado con <strong>{{ $json.carrier }}</strong>. Número de seguimiento: <strong>{{ $json.tracking }}</strong>",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Envío": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Envío",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

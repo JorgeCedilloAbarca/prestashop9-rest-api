@@ -1,0 +1,75 @@
+{
+  "name": "Resumen Diario Ventas",
+  "nodes": [
+    {
+      "id": "sticky_resumen_diario",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 📊 Resumen Diario Ventas\n\n**Qué hace:** Recibe el resumen de ventas del día anterior y lo envía por email cada mañana.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `daily_summary`\n2. **Gmail:** conecta tu cuenta y cambia el destinatario a tu email de gestión\n3. **Fiabilidad:** el envío depende de que alguien abra PrestaShop por la mañana. Para mayor fiabilidad en producción, configurar un cron en el servidor:\n   `0 8 * * * curl -s https://tu-tienda.com/modules/pswebhook/cron.php`\n4. El módulo PHP envía: `fecha`, `total_pedidos`, `facturacion_total`, `ticket_medio`, `cliente_nuevo`, `producto_mas_vendido`",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Resumen Diario",
+      "name": "Recibe Resumen Diario",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "resumen-ventas",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "gmail_Email Resumen Ventas",
+      "name": "Email Resumen Ventas",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "=TU_EMAIL_GESTION@dominio.com",
+        "subject": "=📊 Resumen de ventas — {{ $json.body.fecha }}",
+        "message": "=<h2>Resumen del {{ $json.body.fecha }}</h2><ul><li>Pedidos: {{ $json.body.total_pedidos }}</li><li>Facturación: {{ $json.body.facturacion_total }}€</li><li>Ticket medio: {{ $json.body.ticket_medio }}€</li><li>Clientes nuevos: {{ $json.body.clientes_nuevos }}</li><li>Más vendido: {{ $json.body.producto_mas_vendido }}</li></ul>",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Resumen Diario": {
+      "main": [
+        [
+          {
+            "node": "Email Resumen Ventas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "name": "Factura PS",
+  "nodes": [
+    {
+      "id": "sticky_factura",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 🧾 Factura PS\n\n**Qué hace:** Cuando se genera una factura en PrestaShop, la descarga en PDF desde el microservicio y la envía al cliente por email.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `order_status`\n2. **URL del microservicio:** en el nodo \"Descarga PDF\", cambia `http://TU_IP:8000` por la IP real de tu servidor\n3. **Bearer Token:** en las credenciales del nodo HTTP, añade `Authorization: Bearer TU_TOKEN_JWT`\n4. **Gmail:** conecta tu cuenta en el nodo \"Envía Factura\"\n\n**Flujo:** Webhook → Comprueba si hay factura → Sí: descarga PDF → envía email con adjunto",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Evento Factura",
+      "name": "Recibe Evento Factura",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "factura-pedido",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "if_Tiene Factura",
+      "name": "Tiene Factura",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.invoice_exists }}",
+              "operation": "equal",
+              "value2": "true"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "http_Descarga PDF",
+      "name": "Descarga PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        400,
+        -100
+      ],
+      "parameters": {
+        "url": "=http://TU_IP:8000/orders/{{ $('Recibe Evento Factura').item.json.body.order_id }}/invoice/pdf",
+        "method": "GET",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir Bearer Token API"
+        }
+      }
+    },
+    {
+      "id": "gmail_Envía Factura al Cliente",
+      "name": "Envía Factura al Cliente",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        600,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "={{ $('Recibe Evento Factura').item.json.body.customer_email }}",
+        "subject": "=Factura pedido #{{ $('Recibe Evento Factura').item.json.body.order_id }} — {{ $('Recibe Evento Factura').item.json.body.reference }}",
+        "message": "=Adjunto encontrará la factura de su pedido {{ $('Recibe Evento Factura').item.json.body.reference }} por importe de {{ $('Recibe Evento Factura').item.json.body.total }}€.",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Evento Factura": {
+      "main": [
+        [
+          {
+            "node": "Tiene Factura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tiene Factura": {
+      "main": [
+        [
+          {
+            "node": "Descarga PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descarga PDF": {
+      "main": [
+        [
+          {
+            "node": "Envía Factura al Cliente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

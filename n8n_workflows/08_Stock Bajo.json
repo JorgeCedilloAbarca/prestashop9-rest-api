@@ -1,0 +1,99 @@
+{
+  "name": "Stock Bajo",
+  "nodes": [
+    {
+      "id": "sticky_stock_bajo",
+      "name": "📋 Instrucciones",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -200
+      ],
+      "parameters": {
+        "content": "## 📉 Stock Bajo\n\n**Qué hace:** Cuando el stock de un producto cae por debajo del umbral configurado, envía alerta interna por email.\n\n**Configurar antes de activar:**\n1. **Webhook path:** copia la URL y pégala en el módulo PHP como URL de `low_stock`\n2. **Gmail:** conecta tu cuenta y cambia el destinatario a tu email de gestión\n3. **Umbral:** configurable en el módulo PHP `wsstockbajo.php`, línea `define('WSSTOCKBAJO_UMBRAL', 5)`\n4. **Twilio (opcional):** si no usas WhatsApp, elimina el nodo. Si lo usas, configura credenciales y tu número interno",
+        "height": 300,
+        "width": 400
+      }
+    },
+    {
+      "id": "wh_Recibe Stock Bajo",
+      "name": "Recibe Stock Bajo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "stock-bajo",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "code_Extrae Datos",
+      "name": "Extrae Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body;\nconst combinacion = body.combinacion ? ` (${body.combinacion})` : '';\nreturn [{json: {\n  nombre: body.nombre + combinacion,\n  referencia: body.referencia,\n  stock: body.stock_actual,\n  umbral: body.umbral,\n  fecha: new Date().toLocaleDateString('es-ES')\n}}];"
+      }
+    },
+    {
+      "id": "gmail_Email Alerta Stock",
+      "name": "Email Alerta Stock",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "CONFIGURAR",
+          "name": "⚙️ Añadir credencial Gmail"
+        }
+      },
+      "parameters": {
+        "sendTo": "=TU_EMAIL_GESTION@dominio.com",
+        "subject": "=⚠️ Stock bajo — {{ $json.nombre }}",
+        "message": "=El producto <strong>{{ $json.nombre }}</strong> (Ref: {{ $json.referencia }}) tiene <strong>{{ $json.stock }} unidades</strong>, por debajo del umbral de {{ $json.umbral }}.",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Recibe Stock Bajo": {
+      "main": [
+        [
+          {
+            "node": "Extrae Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrae Datos": {
+      "main": [
+        [
+          {
+            "node": "Email Alerta Stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
